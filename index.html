@@ -1,0 +1,134 @@
+<html>
+	<head>
+		<title>3D Survey Viewer</title>
+		<style>
+			html, body, canvas {
+				margin: 0px;
+				padding: 0px;
+			}
+			canvas {
+				width: 100%;
+				height: 100%;
+			}
+
+		</style>
+	</head>
+	<body>
+		<!-- <div id="container"></div> -->
+		<script src="js/three.min.js"></script>
+		<script src="js/three/controls/OrbitControls.js"></script>
+		<script src="js/three/loaders/DDSLoader.js"></script>
+		<script src="js/three/loaders/OBJLoader.js"></script>
+		<script src="js/three/loaders/MTLLoader.js"></script>
+		<script>
+			var container;
+			var camera, scene, renderer;
+			var mouseX = 0, mouseY = 0;
+			var windowHalfX = window.innerWidth / 2;
+			var windowHalfY = window.innerHeight / 2;
+			var controls;
+
+ 		  function init() {
+				container = document.createElement( 'div' );
+				document.body.appendChild(container);
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 2000 );
+
+				// position and point the camera to the center of the scene
+        camera.position.x = 0;
+        camera.position.y = 0;
+        camera.position.z = 100;
+        camera.lookAt(new THREE.Vector3(0, 0, 1));
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				// scene
+				scene = new THREE.Scene();
+				var ambientLight = new THREE.AmbientLight( 0xcccccc, 0.4 );
+				var pointLight = new THREE.PointLight( 0xffffff, 0.8 );
+
+				controls = new THREE.OrbitControls(camera, renderer.domElement);
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.25;
+				controls.enableZoom = true;
+				camera.add(pointLight);
+				scene.add( ambientLight );
+				scene.add(camera);
+
+				// model
+				var onProgress = function ( xhr ) {
+					if ( xhr.lengthComputable ) {
+						var percentComplete = xhr.loaded / xhr.total * 100;
+						console.log( Math.round(percentComplete, 2) + '% downloaded' );
+					}
+				};
+
+				var onError = function ( xhr ) {
+					console.log('There was some error...');
+				};
+
+				THREE.Loader.Handlers.add( /\.png$/i,  new THREE.TextureLoader() );
+				var mtlLoader = new THREE.MTLLoader();
+				mtlLoader.setPath( 'obj/' );
+				mtlLoader.load( '3dRec.obj.mtl', function( materials ) {
+					materials.preload();
+					var objLoader = new THREE.OBJLoader();
+					objLoader.setMaterials( materials );
+					objLoader.setPath( 'obj/' );
+					objLoader.load( '3dRec.obj', function ( object ) {
+						object.position.x = 0;
+						object.position.y = 0;
+						object.position.z = -800;
+						console.log(object);
+						var object_box = new THREE.Box3().setFromObject(object);
+						// Geometry vertices centering to world axis
+            var box_center = object_box.getCenter().clone();
+            box_center.multiplyScalar(-1);
+            object.traverse(function (child) {
+                if (child instanceof THREE.Mesh) {
+                    child.geometry.translate(box_center.x, box_center.y, box_center.z);
+                }
+            });
+            object_box.setFromObject(object); // Update the bounding box
+
+						scene.add( object );
+					}, onProgress, onError );
+				});
+
+				console.log(mtlLoader);
+
+				container.appendChild( renderer.domElement );
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				// camera.position.set( 0, 0, 800 );
+				// controls.update();
+			}
+
+			function onWindowResize() {
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function onDocumentMouseMove( event ) {
+				mouseX = ( event.clientX - windowHalfX ) / 2;
+				mouseY = ( event.clientY - windowHalfY ) / 2;
+			}
+
+			function animate() {
+				requestAnimationFrame( animate );
+				controls.update();
+				renderer.render( scene, camera );
+			}
+
+			init();
+			animate();
+
+		</script>
+	</body>
+</html>
